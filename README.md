@@ -45,14 +45,14 @@
     "llm": {
         "analyzer": {
             "provider": "openai",
-            "model": "Qwen/Qwen2-VL-72B-Instruct",
-            "api_key": "您的_API_KEY",
+            "model": "Qwen/Qwen3.5-27B",
+            "api_key": "YOUR_API_KEY_HERE",
             "api_base": "https://api.siliconflow.cn/v1"
         },
         "converter": {
             "provider": "openai",
             "model": "Qwen/Qwen3.5-35B-A3B",
-            "api_key": "您的_API_KEY",
+            "api_key": "YOUR_API_KEY_HERE",
             "api_base": "https://api.siliconflow.cn/v1"
         }
     },
@@ -66,8 +66,8 @@
 
 > **进阶提示 (双阶段 Agent)：**
 > 本项目支持根据工作流特性的不同独立配置大模型：
-> - **`analyzer`**：用来对扫描件 PDF 页面进行视觉理解、感知识别图片和表格，并提取精准坐标。**此环节强烈依赖于大模型的视觉多模态 (Vision) 能力以及严格输出纯正结构化 JSON 的能力**。务必为其配置诸如 `gpt-4o`、`claude-3-5-sonnet`，或者顶级开源视觉模型。
-> - **`converter`**：用来将提取出的粗糙长文本结合上下文重新修饰并输出移动端精美的流式 HTML 结构。此环节是纯本文处理，推荐配置逻辑能力强、上下文窗口够高的硬核文本/推理大模型。
+> - **`analyzer`**：用来对扫描件 PDF 页面进行视觉理解、感知识别图片和表格，并提取精准坐标。**此环节强烈依赖于大模型的视觉多模态 (Vision) 能力以及严格输出纯正结构化 JSON 的能力**。务必为其配置顶级视觉模型。目前使用的开源多模态模型如Qwen3.5-27B等存在找不准位置的问题，可以考虑自行优化提示词或者更换模型。
+> - **`converter`**：用来将提取出的粗糙长文本结合上下文重新修饰或者直接将图片转化为移动端精美的流式 HTML 结构。此环节一般的视觉模型即可胜任。
 
 ## 🚀 快速开始
 
@@ -77,7 +77,7 @@
 # 默认基本使用
 uv run main.py path/to/your/document.pdf --config config.json
 
-# 叠加高级控制参数运行
+# 最快无图运行
 uv run main.py path/to/your/document.pdf --config config.json --skip-images --no-think
 ```
 
