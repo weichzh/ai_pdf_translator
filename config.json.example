@@ -1,0 +1,13 @@
+{
+    "llm": {
+        "provider": "openai",
+        "model": "Qwen/Qwen3.5-122B-A10B",
+        "api_key": "",
+        "api_base": "https://api.siliconflow.cn/v1"
+    },
+    "output": {
+        "images_dir": "output/images",
+        "epub_dir": "output"
+    },
+    "sleep_interval": 10
+}
