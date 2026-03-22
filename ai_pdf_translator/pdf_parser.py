@@ -84,9 +84,10 @@ def crop_image(image: Image.Image, bbox: Tuple[int, int, int, int]) -> Image.Ima
     
     Args:
         image (Image.Image): 原始Pillow Image对象
-        bbox (Tuple[int, int, int, int]): (left, top, right, bottom)的边界框坐标
+        bbox (Tuple[int, int, int, int]): 格式为 (x, y, width, height) 的边界框坐标
         
     Returns:
         Image.Image: 裁剪后的Pillow Image对象
     """
-    return image.crop(bbox)
+    x, y, w, h = bbox
+    return image.crop((x, y, x + w, y + h))

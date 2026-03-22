@@ -43,10 +43,18 @@
 ```json
 {
     "llm": {
-        "provider": "openai",
-        "model": "Qwen/Qwen2-VL-72B-Instruct",
-        "api_key": "您的_API_KEY",
-        "api_base": "https://api.siliconflow.cn/v1"
+        "analyzer": {
+            "provider": "openai",
+            "model": "Qwen/Qwen2-VL-72B-Instruct",
+            "api_key": "您的_API_KEY",
+            "api_base": "https://api.siliconflow.cn/v1"
+        },
+        "converter": {
+            "provider": "openai",
+            "model": "Qwen/Qwen3.5-35B-A3B",
+            "api_key": "您的_API_KEY",
+            "api_base": "https://api.siliconflow.cn/v1"
+        }
     },
     "output": {
         "images_dir": "output/images",
@@ -56,15 +64,27 @@
 }
 ```
 
-> **注意：** 该脚本强烈依赖于大模型的**视觉多模态 (Vision)** 能力，以及**结构化 JSON 输出能力**。请务必配置诸如 `gpt-5`, `claude-4`, 或者开源的顶级视觉模型如 `Qwen3.5-Plus` 等。请不要使用纯文本大模型，否则服务将会报错！
+> **进阶提示 (双阶段 Agent)：**
+> 本项目支持根据工作流特性的不同独立配置大模型：
+> - **`analyzer`**：用来对扫描件 PDF 页面进行视觉理解、感知识别图片和表格，并提取精准坐标。**此环节强烈依赖于大模型的视觉多模态 (Vision) 能力以及严格输出纯正结构化 JSON 的能力**。务必为其配置诸如 `gpt-4o`、`claude-3-5-sonnet`，或者顶级开源视觉模型。
+> - **`converter`**：用来将提取出的粗糙长文本结合上下文重新修饰并输出移动端精美的流式 HTML 结构。此环节是纯本文处理，推荐配置逻辑能力强、上下文窗口够高的硬核文本/推理大模型。
 
 ## 🚀 快速开始
 
 所有的操作都可以通过一条简单的 CLI 命令完成：
 
 ```bash
+# 默认基本使用
 uv run main.py path/to/your/document.pdf --config config.json
+
+# 叠加高级控制参数运行
+uv run main.py path/to/your/document.pdf --config config.json --skip-images --no-think
 ```
+
+**命令行控制台高级参数说明：**
+
+- `--skip-images`：跳过耗时的版面底层图片分析及精准图像截图。直接利用大模型将整页纯转换为文本内容，这对于**纯文本类 PDF**或不需要查看插图只在乎获取文本知识信息的场景非常适合，能够成倍提升执行速度。
+- `--no-think`：关闭模型的深思慎取过程。当前非常多超高参数的高阶推理模型总会强制产生耗费大量无意义时间的 `<think>分析逻辑</think>`。挂上此标签之后能在与支持它的服务端 API（譬如 `enable_thinking=false`）交互时，实现直接粗暴地甩出最终答案的效果。
 
 **运行过程说明：**
 1. 脚本将自动在项目目录下创建 `output/` 作为工作输出空间。

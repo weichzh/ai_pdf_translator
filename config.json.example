@@ -1,9 +1,17 @@
 {
     "llm": {
-        "provider": "openai",
-        "model": "Qwen/Qwen3.5-122B-A10B",
-        "api_key": "",
-        "api_base": "https://api.siliconflow.cn/v1"
+        "analyzer": {
+            "provider": "openai",
+            "model": "Qwen/Qwen3.5-27B",
+            "api_key": "YOUR_API_KEY_HERE",
+            "api_base": "https://api.siliconflow.cn/v1"
+        },
+        "converter": {
+            "provider": "openai",
+            "model": "Qwen/Qwen3.5-35B-A3B",
+            "api_key": "YOUR_API_KEY_HERE",
+            "api_base": "https://api.siliconflow.cn/v1"
+        }
     },
     "output": {
         "images_dir": "output/images",

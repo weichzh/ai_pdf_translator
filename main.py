@@ -16,13 +16,15 @@ def load_config(config_path: str) -> dict:
     with open(config_path, 'r', encoding='utf-8') as f:
         return json.load(f)
 
-def process_pdf(pdf_path: str, config_path: str = "config.json") -> None:
+def process_pdf(pdf_path: str, config_path: str = "config.json", skip_images: bool = False, no_think: bool = False) -> None:
     """
     处理整个 PDF 到 EPUB 的转换流程。
     
     Args:
         pdf_path (str): PDF 文件的路径
         config_path (str): 配置文件路径
+        skip_images (bool): 是否跳过图片截取与底层获取
+        no_think (bool): 是否直接要求大模型输出结果而不输出思考过程
     """
     config = load_config(config_path)
     
@@ -38,7 +40,7 @@ def process_pdf(pdf_path: str, config_path: str = "config.json") -> None:
     os.makedirs(pages_dir, exist_ok=True)
     
     # 初始化核心组件
-    llm = LLMProcessor(config.get("llm", {}))
+    llm = LLMProcessor(config.get("llm", {}), no_think=no_think)
     base_name = Path(pdf_path).stem
     builder = EpubBuilder(title=base_name)
     
@@ -53,46 +55,49 @@ def process_pdf(pdf_path: str, config_path: str = "config.json") -> None:
         placeholders = []
         html_replacements = {}
         
-        if pdf_type == "image_based":
-            # 1. 寻找特殊元素 (图片、复杂表格) - 依赖大模型视觉能力
-            analysis = llm.analyze_page_elements(image)
+        if not skip_images:
+            if pdf_type == "image_based":
+                # 1. 寻找特殊元素 (图片、复杂表格) - 依赖大模型视觉能力
+                analysis = llm.analyze_page_elements(image)
+                
+                # 2. 对需要提取的特殊内容进行裁剪
+                for element in analysis.elements:
+                    if element.need_crop:
+                        # 裁剪图片
+                        cropped = crop_image(image, element.bbox)
+                        img_filename = f"{base_name}_p{page_num}_{element.placeholder_id}.png"
+                        img_path = os.path.join(images_dir, img_filename)
+                        cropped.save(img_path)
+                        
+                        # 记录以便加入 epub，及其在 epub 中的相对路径
+                        epub_img_path = f"images/{img_filename}"
+                        builder.add_image(img_path, epub_img_path)
+                        
+                        placeholders.append(element)
+                        # 准备替换占位符标签的 <img>
+                        html_replacements[element.placeholder_id] = f'<img src="{epub_img_path}" alt="{element.element_type}" />'
             
-            # 2. 对需要提取的特殊内容进行裁剪
-            for element in analysis.elements:
-                if element.need_crop:
-                    # 裁剪图片
-                    cropped = crop_image(image, element.bbox)
-                    img_filename = f"{base_name}_p{page_num}_{element.placeholder_id}.png"
-                    img_path = os.path.join(images_dir, img_filename)
-                    cropped.save(img_path)
+            else:
+                # 针对文字型 PDF: 直接从底层提取原生图片，跳过大模型猜位置，做到百分百准确并保留原清晰度
+                for img_dict in extracted_images:
+                    img_id = img_dict["id"]
+                    img_ext = img_dict["ext"]
+                    img_bytes = img_dict["bytes"]
                     
-                    # 记录以便加入 epub，及其在 epub 中的相对路径
+                    img_filename = f"{base_name}_p{page_num}_{img_id}.{img_ext}"
+                    img_path = os.path.join(images_dir, img_filename)
+                    with open(img_path, "wb") as f:
+                        f.write(img_bytes)
+                    
                     epub_img_path = f"images/{img_filename}"
                     builder.add_image(img_path, epub_img_path)
                     
+                    # 兼容现有占位符替换流程
+                    element = ElementBBox(element_type="image", bbox=(0,0,0,0), need_crop=False, placeholder_id=img_id)
                     placeholders.append(element)
-                    # 准备替换占位符标签的 <img>
-                    html_replacements[element.placeholder_id] = f'<img src="{epub_img_path}" alt="{element.element_type}" />'
-        
+                    html_replacements[img_id] = f'<img src="{epub_img_path}" alt="native image" />'
         else:
-            # 针对文字型 PDF: 直接从底层提取原生图片，跳过大模型猜位置，做到百分百准确并保留原清晰度
-            for img_dict in extracted_images:
-                img_id = img_dict["id"]
-                img_ext = img_dict["ext"]
-                img_bytes = img_dict["bytes"]
-                
-                img_filename = f"{base_name}_p{page_num}_{img_id}.{img_ext}"
-                img_path = os.path.join(images_dir, img_filename)
-                with open(img_path, "wb") as f:
-                    f.write(img_bytes)
-                
-                epub_img_path = f"images/{img_filename}"
-                builder.add_image(img_path, epub_img_path)
-                
-                # 兼容现有占位符替换流程
-                element = ElementBBox(element_type="image", bbox=(0,0,0,0), need_crop=False, placeholder_id=img_id)
-                placeholders.append(element)
-                html_replacements[img_id] = f'<img src="{epub_img_path}" alt="native image" />'
+            print(f"[{base_name}] 参数 --skip-images 已开启，跳过所有原生图像扫描与截图分析。")
         
         print(f"[{base_name}] 正在转换第 {page_num} 页排版为 HTML...")
         
@@ -133,6 +138,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="AI PDF to EPUB Translator")
     parser.add_argument("pdf_path", type=str, help="输入 PDF 的路径")
     parser.add_argument("--config", type=str, default="config.json", help="配置文件路径")
+    parser.add_argument("--skip-images", action="store_true", help="跳过自动图片截取与提取流程，只生成排版结构")
+    parser.add_argument("--no-think", action="store_true", help="要求大模型直接给出结果，不输出 <think> 思考过程")
     args = parser.parse_args()
     
-    process_pdf(args.pdf_path, args.config)
+    process_pdf(args.pdf_path, args.config, args.skip_images, args.no_think)
